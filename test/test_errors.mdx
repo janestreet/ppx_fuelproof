@@ -1,0 +1,91 @@
+
+Error on unsupported kind annotation:
+
+```ocaml
+type%fuelproof 'a t : value mod portable with 'a =
+  { x : 'a }
+```
+```mdx-error
+Lines 1-2, characters 1-15:
+Error: Unsupported kind annotation for %fuelproof
+```
+
+Error on claiming thing with mutable fields crosses contention:
+
+```ocaml
+type%fuelproof t : value mod contended =
+  { mutable x : int }
+```
+```mdx-error
+Lines 1-2, characters 1-24:
+Error: Type with a mutable field can't cross contention
+```
+
+Error on type without kind annotation:
+
+```ocaml
+type%fuelproof t =
+  { mutable x : int }
+```
+```mdx-error
+Lines 1-2, characters 1-24:
+Error: %fuelproof can only be written on types with kind annotations
+```
+
+Error on unsupported axis:
+
+```ocaml
+type%fuelproof t : value mod shared =
+  { mutable x : int }
+```
+```mdx-error
+Lines 1-2, characters 1-24:
+Error: Modifier not supported by fuelproof: shared
+```
+
+`ppx_fuelproof` can cause existential variables to have
+more restrictive mode crossing behavior inferred for them.
+
+```ocaml
+type%fuelproof t : value mod portable =
+  | A : _        -> t
+  | B : _ list   -> t
+  | C : _ iarray -> t
+```
+
+You can't fill in the existential variables with a function:
+
+```ocaml
+# A (fun () -> ());;
+Line 1, characters 3-17:
+Error:
+       The kind of 'a -> 'b is value mod aliased immutable non_float
+         because it's a function type.
+       But the kind of 'a -> 'b must be a subkind of value mod portable
+         because of the definition of t at lines 1-4, characters 1-24.
+# B [ (fun () -> ()) ];;
+Line 1, characters 5-19:
+Error:
+       The kind of 'a -> 'b is value mod aliased immutable non_float
+         because it's a function type.
+       But the kind of 'a -> 'b must be a subkind of value mod portable
+         because of the definition of t at lines 1-4, characters 1-24.
+# C [: (fun () -> ()) :];;
+Line 1, characters 6-20:
+Error:
+       The kind of 'a -> 'b is value mod aliased immutable non_float
+         because it's a function type.
+       But the kind of 'a -> 'b must be a subkind of value mod portable
+         because of the definition of t at lines 1-4, characters 1-24.
+```
+
+
+Errors on missing kind annotations on `[@@unboxed]` types:
+
+```ocaml
+type%fuelproof t = { inner : string * int } [@@unboxed]
+```
+```mdx-error
+Line 1, characters 1-56:
+Error: %fuelproof can only be written on types with kind annotations
+```
