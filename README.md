@@ -64,9 +64,21 @@ end
 ```
 ```mdx-error
 Lines 4-12, characters 5-8:
-Error: The kind of type t is immutable_data with Field1.t with Field2.t
-         with Field3.t with Field4.t with Field5.t with Field6.t
-         with Field7.t
+Error: The kind of type t is
+           immutable_data
+             with Field1.t
+
+             with Field2.t
+
+             with Field3.t
+
+             with Field4.t
+
+             with Field5.t
+
+             with Field6.t
+
+             with Field7.t
          because it's a boxed record type.
        But the kind of type t must be a subkind of value mod portable
          because of the annotation on the declaration of the type t.

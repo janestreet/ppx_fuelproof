@@ -1,6 +1,9 @@
 open Base
 open Ppxlib
 
+(*$ open Base *)
+(*$*)
+
 module Supported_axis = struct
   module T = struct
     type t =
@@ -8,17 +11,25 @@ module Supported_axis = struct
       | Contended
       | Unyielding
       | Many
+      | Stateless
+      | Immutable
+      | Non_float
     [@@deriving compare ~localize, sexp_of]
   end
 
   include Comparable.Make (T)
   include T
 
-  let of_mod : Ppxlib_jane.mode -> t Or_error.t = function
+  let of_modal_mod : Ppxlib_jane.mode -> t Or_error.t = function
     | Mode "portable" -> Ok Portable
     | Mode "contended" -> Ok Contended
     | Mode "unyielding" -> Ok Unyielding
     | Mode "many" -> Ok Many
+    | Mode "stateless" -> Ok Stateless
+    | Mode "immutable" ->
+      Ok Immutable
+      (* It's intentional that we're omitting [non_float]: it's non-modal, so there's no
+         reason to use it with fuelproof. *)
     | Mode axis -> Or_error.errorf "Modifier not supported by fuelproof: %s" axis
   ;;
 
@@ -27,17 +38,102 @@ module Supported_axis = struct
     | Contended -> "contended"
     | Many -> "many"
     | Unyielding -> "unyielding"
+    | Stateless -> "stateless"
+    | Immutable -> "immutable"
+    | Non_float -> "non_float"
+  ;;
+
+  let is_modal = function
+    | Non_float -> false
+    | _ -> true
   ;;
 end
 
-let immutable_data ~loc =
-  [ Supported_axis.Contended; Many; Portable; Unyielding ]
-  |> List.map ~f:(fun txt -> { txt; loc })
+(* In the event that [immutable_data] or [mutable_data] grow new modes, add
+   then here. The below tests ensure we aren't doing something unsound in the meantime, by
+   checking (via a subkind check /in both directions/) that the set of axes we have here
+   is exactly the set of axes in [immutable_data].*)
+(*$
+  let immutable_data =
+    [ "contended"
+    ; "immutable"
+    ; "many"
+    ; "non_float"
+    ; "portable"
+    ; "stateless"
+    ; "unyielding"
+    ]
+  ;;
+
+  let mutable_data = [ "many"; "non_float"; "portable"; "stateless"; "unyielding" ]
+
+  let sync_data = [ "contended"; "many"; "non_float"; "portable"; "stateless"; "unyielding" ]
+*)
+(*$
+  let print_list_and_test data ~name =
+    Stdio.printf "let %s : Supported_axis.t list = [ " name;
+    List.iter data ~f:(fun mod_ -> Stdio.printf {|%s; |} (String.capitalize mod_));
+    Stdio.print_endline "];;";
+    Stdio.printf
+      {|
+      module _ : sig
+        type _t1 : %s
+        type _t2 : value mod %s
+      end = struct
+        type _t1 : value mod %s
+        type _t2 : %s
+      end
+    |}
+      name
+      (String.concat data ~sep:" ")
+      (String.concat data ~sep:" ")
+      name
+  ;;
+
+  let () = print_list_and_test immutable_data ~name:"immutable_data"
+  let () = print_list_and_test mutable_data ~name:"mutable_data"
+  let () = print_list_and_test sync_data ~name:"sync_data"
+*)
+let immutable_data : Supported_axis.t list =
+  [ Contended; Immutable; Many; Non_float; Portable; Stateless; Unyielding ]
 ;;
 
-let mutable_data ~loc =
-  [ Supported_axis.Many; Portable; Unyielding ] |> List.map ~f:(fun txt -> { txt; loc })
+module _ : sig
+  type _t1
+  type _t2
+end = struct
+  type _t1
+  type _t2
+end
+
+let mutable_data : Supported_axis.t list =
+  [ Many; Non_float; Portable; Stateless; Unyielding ]
 ;;
+
+module _ : sig
+  type _t1
+  type _t2
+end = struct
+  type _t1
+  type _t2
+end
+
+let sync_data : Supported_axis.t list =
+  [ Contended; Many; Non_float; Portable; Stateless; Unyielding ]
+;;
+
+module _ : sig
+  type _t1
+  type _t2
+end = struct
+  type _t1
+  type _t2
+end
+(*$*)
+
+let immutable_data ~loc = immutable_data |> List.map ~f:(fun txt -> { txt; loc })
+let mutable_data ~loc = mutable_data |> List.map ~f:(fun txt -> { txt; loc })
+let sync_data ~loc = sync_data |> List.map ~f:(fun txt -> { txt; loc })
 
 let axes_to_ignore modalities =
   List.filter_map
@@ -57,7 +153,8 @@ let axes_to_ignore modalities =
 let crossing_axes_is_implied_by_immutable_data axes =
   List.for_all axes ~f:(fun { txt = m; loc = _ } ->
     match (m : Supported_axis.t) with
-    | Portable | Contended | Unyielding | Many -> true)
+    | Portable | Contended | Unyielding | Many | Stateless | Immutable -> true
+    | Non_float -> false)
 ;;
 
 let type_with_builtin_cross_checking ty ~axes_to_cross ~axes_to_ignore =
@@ -78,8 +175,12 @@ let type_with_builtin_cross_checking ty ~axes_to_cross ~axes_to_ignore =
                Mod
                  ( { pjkind_desc = Abbreviation "any"; pjkind_loc = loc }
                  , List.map axes_to_check_crossing ~f:(fun axis ->
-                     { txt = Ppxlib_jane.Shim.Mode.Mode (Supported_axis.to_axis axis.txt)
-                     ; loc = { axis.loc with loc_ghost = true }
+                     Supported_axis.to_axis axis.txt, axis.loc)
+                     (* sort to match ocamlformat output *)
+                   |> List.sort ~compare:[%compare: string * _]
+                   |> List.map ~f:(fun (mod_, loc) ->
+                     { txt = Ppxlib_jane.Shim.Mode.Mode mod_
+                     ; loc = { loc with loc_ghost = true }
                      }) )
            ; pjkind_loc = loc
            })
@@ -167,46 +268,81 @@ let rewrite_constructors original_constructors ~axes_to_cross =
   |> Result.all
 ;;
 
+let remove_non_modal axes =
+  List.filter axes ~f:(fun loc -> Supported_axis.is_modal loc.txt)
+;;
+
 let rewrite_tydecls (tydecls : type_declaration list) =
   let open Or_error.Let_syntax in
-  List.map tydecls ~f:(fun t ->
-    let%bind axes_to_cross =
+  let%bind new_tydecls =
+    List.map tydecls ~f:(fun t ->
       match Ppxlib_jane.Shim.Type_declaration.extract_jkind_annotation t with
-      | None -> Ok []
-      | Some { pjkind_desc = Mod ({ pjkind_desc = Abbreviation "value"; _ }, mods); _ } ->
-        List.map mods ~f:(fun mod_ ->
-          let%map axis = Supported_axis.of_mod mod_.txt in
-          { mod_ with txt = axis })
-        |> Result.all
-      | Some { pjkind_desc = Abbreviation "immutable_data"; pjkind_loc = loc } ->
-        Ok (immutable_data ~loc)
-      | Some { pjkind_desc = Abbreviation "mutable_data"; pjkind_loc = loc } ->
-        Ok (mutable_data ~loc)
-      | Some _ -> Or_error.error_string "Unsupported kind annotation for %fuelproof"
-    in
-    let%bind new_ptype_kind =
-      match t.ptype_kind with
-      | Ptype_record fields ->
-        let%bind fields = rewrite_fields fields ~axes_to_cross in
-        return (Ptype_record fields)
-      | Ptype_variant constructors ->
-        let%bind constructors = rewrite_constructors constructors ~axes_to_cross in
-        return (Ptype_variant constructors)
-      | _ -> Or_error.error_string "Can only write %fuelproof on records and variants"
-    in
-    let loc = { t.ptype_loc with loc_ghost = true } in
-    Ok
-      { t with
-        ptype_kind = new_ptype_kind
-      ; ptype_attributes =
-          t.ptype_attributes
-          @ [ { attr_loc = loc
-              ; attr_name = { loc; txt = "unsafe_allow_any_mode_crossing" }
-              ; attr_payload = PStr []
-              }
-            ]
-      })
-  |> Result.all
+      | None -> Ok `Unchanged
+      | Some jkind ->
+        let%bind axes_to_cross =
+          match jkind with
+          | { pjkind_desc = Mod ({ pjkind_desc = Abbreviation "value"; _ }, mods); _ } ->
+            let%bind axes =
+              List.map mods ~f:(fun mod_ ->
+                let%map axis = Supported_axis.of_modal_mod mod_.txt in
+                { mod_ with txt = axis })
+              |> Result.all
+            in
+            Ok axes
+          | { pjkind_desc = Abbreviation "immutable_data"; pjkind_loc = loc } ->
+            Ok (immutable_data ~loc)
+          | { pjkind_desc = Abbreviation "mutable_data"; pjkind_loc = loc } ->
+            Ok (mutable_data ~loc)
+          | { pjkind_desc = Abbreviation "sync_data"; pjkind_loc = loc } ->
+            Ok (sync_data ~loc)
+          | _ -> Or_error.error_string "Unsupported kind annotation for %fuelproof"
+        in
+        let axes_to_cross =
+          let is_unboxed =
+            List.exists t.ptype_attributes ~f:(fun attr ->
+              String.equal attr.attr_name.txt "unboxed")
+          in
+          (* For example, [Non_float]'s axis (separability) is not modal, so applies in
+             different circumstances than modal axes. In particular, it is only relevant
+             for fuelproof checks on [@@unboxed] types, where the separability of the
+             overall type is inherited from the separability of the single field. *)
+          if is_unboxed then axes_to_cross else remove_non_modal axes_to_cross
+        in
+        let%bind new_ptype_kind =
+          match t.ptype_kind with
+          | Ptype_record fields ->
+            let%bind fields = rewrite_fields fields ~axes_to_cross in
+            return (Ptype_record fields)
+          | Ptype_variant constructors ->
+            let%bind constructors = rewrite_constructors constructors ~axes_to_cross in
+            return (Ptype_variant constructors)
+          | _ -> Or_error.error_string "Can only write %fuelproof on records and variants"
+        in
+        let loc = { t.ptype_loc with loc_ghost = true } in
+        Ok
+          (`Changed
+            { t with
+              ptype_kind = new_ptype_kind
+            ; ptype_attributes =
+                t.ptype_attributes
+                @ [ { attr_loc = loc
+                    ; attr_name = { loc; txt = "unsafe_allow_any_mode_crossing" }
+                    ; attr_payload = PStr []
+                    }
+                  ]
+            }))
+    |> Result.all
+  in
+  if List.for_all new_tydecls ~f:(function
+       | `Unchanged -> true
+       | `Changed _ -> false)
+  then Ok tydecls
+  else
+    List.map2_exn tydecls new_tydecls ~f:(fun old new_ ->
+      match new_ with
+      | `Unchanged -> old
+      | `Changed new_ -> new_)
+    |> Result.return
 ;;
 
 let extension_str =

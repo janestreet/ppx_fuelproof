@@ -295,3 +295,17 @@ module%test Recursive_with_immutable_data = struct
   let cross_portability : t -> t = fun x -> x
   let cross_contention : t -> t = fun x -> x
 end
+
+(* [%fuelproof] doesn't error as long as at least one type in the knot has
+   an annotation.
+*)
+module%test Recursive_knot = struct
+  [@@@expand_inline
+    type%fuelproof t = { u : u }
+    and u = U : int -> u]
+
+  type t = { u : u }
+  and u = U : int -> u [@@unsafe_allow_any_mode_crossing]
+
+  [@@@end]
+end

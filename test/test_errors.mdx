@@ -89,3 +89,18 @@ type%fuelproof t = { inner : string * int } [@@unboxed]
 Line 1, characters 1-56:
 Error: %fuelproof can only be written on types with kind annotations
 ```
+
+Errors on claiming that a float isn't:
+
+```ocaml
+type%fuelproof t : immutable_data = { x : float } [@@unboxed]
+```
+```mdx-error
+Line 1, characters 43-48:
+Error: Bad layout annotation:
+         The kind of float is value mod many unyielding stateless immutable
+           because it is the primitive type float.
+         But the kind of float must be a subkind of
+             any mod many unyielding stateless immutable non_float
+           because of the annotation on the wildcard _ at line 1, characters 43-48.
+```
