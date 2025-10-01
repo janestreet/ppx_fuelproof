@@ -11,7 +11,7 @@ type f = unit -> unit
 
 module%test Portable = struct
   [@@@expand_inline
-    type%fuelproof _ t =
+    type%fuelproof _ t : value mod portable =
       | A : int t
       | B : int -> bool t
       | C : { x : int } -> string t
@@ -26,20 +26,20 @@ module%test Portable = struct
       [@@@warning "-34"]
 
       module Check__001_ = struct
-        type _ t =
+        type _ t : value mod portable =
           | A : int t
-          | B : int -> bool t
-          | C : { x : int } -> string t
+          | B : (int as (_ : any mod portable)) -> bool t
+          | C : { x : int as (_ : any mod portable) } -> string t
           | D :
-              { mutable y : int
-              ; z : int
+              { mutable y : int as (_ : any mod portable)
+              ; z : int as (_ : any mod portable)
               }
               -> unit t
         [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type 'a__002_ t = 'a__002_ Check__001_.t =
+    type 'a__002_ t : value mod portable = 'a__002_ Check__001_.t =
       | A : int t
       | B : int -> bool t
       | C : { x : int } -> string t
@@ -53,12 +53,12 @@ module%test Portable = struct
 
   [@@@end]
 
-  let cross : _ t -> _ t = fun x -> x
+  let cross : _ t -> _ t @ portable = fun x -> x
 end
 
 module%test Contended = struct
   [@@@expand_inline
-    type%fuelproof _ t =
+    type%fuelproof _ t : value mod contended =
       | A : int t
       | B : int -> bool t
       | C : { x : int } -> string t
@@ -73,20 +73,20 @@ module%test Contended = struct
       [@@@warning "-34"]
 
       module Check__005_ = struct
-        type _ t =
+        type _ t : value mod contended =
           | A : int t
-          | B : int -> bool t
-          | C : { x : int } -> string t
+          | B : (int as (_ : any mod contended)) -> bool t
+          | C : { x : int as (_ : any mod contended) } -> string t
           | D :
-              { y : int
-              ; z : int
+              { y : int as (_ : any mod contended)
+              ; z : int as (_ : any mod contended)
               }
               -> unit t
         [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type 'a__006_ t = 'a__006_ Check__005_.t =
+    type 'a__006_ t : value mod contended = 'a__006_ Check__005_.t =
       | A : int t
       | B : int -> bool t
       | C : { x : int } -> string t
@@ -100,17 +100,17 @@ module%test Contended = struct
 
   [@@@end]
 
-  let cross : _ t -> _ t = fun x -> x
+  let cross : _ t @ contended -> _ t = fun x -> x
 end
 
 module%test Unyielding = struct
   [@@@expand_inline
-    type%fuelproof _ t =
+    type%fuelproof _ t : value mod unyielding =
       | A : int t
       | B : int -> bool t
       | C : { x : int } -> string t
       | D :
-          { y : f
+          { y : f @@ unyielding
           ; z : int
           }
           -> unit t]
@@ -120,25 +120,25 @@ module%test Unyielding = struct
       [@@@warning "-34"]
 
       module Check__009_ = struct
-        type _ t =
+        type _ t : value mod unyielding =
           | A : int t
-          | B : int -> bool t
-          | C : { x : int } -> string t
+          | B : (int as (_ : any mod unyielding)) -> bool t
+          | C : { x : int as (_ : any mod unyielding) } -> string t
           | D :
-              { y : f
-              ; z : int
+              { y : f @@ unyielding
+              ; z : int as (_ : any mod unyielding)
               }
               -> unit t
         [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type 'a__010_ t = 'a__010_ Check__009_.t =
+    type 'a__010_ t : value mod unyielding = 'a__010_ Check__009_.t =
       | A : int t
       | B : int -> bool t
       | C : { x : int } -> string t
       | D :
-          { y : f
+          { y : f @@ unyielding
           ; z : int
           }
           -> unit t
@@ -147,17 +147,17 @@ module%test Unyielding = struct
 
   [@@@end]
 
-  let cross : _ t -> _ t = fun x -> x
+  let cross : _ t @ unyielding -> _ t = fun x -> x
 end
 
 module%test Many = struct
   [@@@expand_inline
-    type%fuelproof _ t =
+    type%fuelproof _ t : value mod many =
       | A : int t
       | B : int -> bool t
       | C : { x : int } -> string t
       | D :
-          { y : f
+          { y : f @@ many
           ; z : int
           }
           -> unit t]
@@ -167,25 +167,25 @@ module%test Many = struct
       [@@@warning "-34"]
 
       module Check__013_ = struct
-        type _ t =
+        type _ t : value mod many =
           | A : int t
-          | B : int -> bool t
-          | C : { x : int } -> string t
+          | B : (int as (_ : any mod many)) -> bool t
+          | C : { x : int as (_ : any mod many) } -> string t
           | D :
-              { y : f
-              ; z : int
+              { y : f @@ many
+              ; z : int as (_ : any mod many)
               }
               -> unit t
         [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type 'a__014_ t = 'a__014_ Check__013_.t =
+    type 'a__014_ t : value mod many = 'a__014_ Check__013_.t =
       | A : int t
       | B : int -> bool t
       | C : { x : int } -> string t
       | D :
-          { y : f
+          { y : f @@ many
           ; z : int
           }
           -> unit t
@@ -194,24 +194,24 @@ module%test Many = struct
 
   [@@@end]
 
-  let cross : _ t -> _ t = fun x -> x
+  let cross : _ t @ many -> _ t = fun x -> x
 end
 
 (* Modalities discharge the requirement that the field mode-cross. *)
 
 module%test Modalities = struct
   [@@@expand_inline
-    type%fuelproof _ t =
+    type%fuelproof _ t : value mod portable =
       | A : int t
-      | B : f * int -> bool t
+      | B : f @@ portable * int -> bool t
       | C :
-          { x : f
+          { x : f @@ portable
           ; y : int
           }
           -> string t
       | D :
           { mutable y : int
-          ; mutable y' : f
+          ; mutable y' : f @@ portable
           ; z : int
           }
           -> unit t]
@@ -221,35 +221,35 @@ module%test Modalities = struct
       [@@@warning "-34"]
 
       module Check__017_ = struct
-        type _ t =
+        type _ t : value mod portable =
           | A : int t
-          | B : f * int -> bool t
+          | B : f @@ portable * (int as (_ : any mod portable)) -> bool t
           | C :
-              { x : f
-              ; y : int
+              { x : f @@ portable
+              ; y : int as (_ : any mod portable)
               }
               -> string t
           | D :
-              { mutable y : int
-              ; mutable y' : f
-              ; z : int
+              { mutable y : int as (_ : any mod portable)
+              ; mutable y' : f @@ portable
+              ; z : int as (_ : any mod portable)
               }
               -> unit t
         [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type 'a__018_ t = 'a__018_ Check__017_.t =
+    type 'a__018_ t : value mod portable = 'a__018_ Check__017_.t =
       | A : int t
-      | B : f * int -> bool t
+      | B : f @@ portable * int -> bool t
       | C :
-          { x : f
+          { x : f @@ portable
           ; y : int
           }
           -> string t
       | D :
           { mutable y : int
-          ; mutable y' : f
+          ; mutable y' : f @@ portable
           ; z : int
           }
           -> unit t
@@ -258,7 +258,7 @@ module%test Modalities = struct
 
   [@@@end]
 
-  let cross : _ t -> _ t = fun x -> x
+  let cross : _ t -> _ t @ portable = fun x -> x
 end
 
 module%test Modalities2 = struct
@@ -266,13 +266,13 @@ module%test Modalities2 = struct
   type mut_f = { mutable f_field : unit -> unit }
 
   [@@@expand_inline
-    type%fuelproof _ t =
+    type%fuelproof _ t : value mod contended portable =
       | A : int t
-      | B : f * int -> bool t
+      | B : f @@ portable * int -> bool t
       | C :
-          { x : f
-          ; y : mut
-          ; z : mut_f
+          { x : f @@ portable
+          ; y : mut @@ contended
+          ; z : mut_f @@ contended portable
           }
           -> string t]
 
@@ -281,26 +281,29 @@ module%test Modalities2 = struct
       [@@@warning "-34"]
 
       module Check__021_ = struct
-        type _ t =
+        type _ t : value mod contended portable =
           | A : int t
-          | B : f * int -> bool t
+          | B :
+              (f as (_ : any mod contended)) @@ portable
+              * (int as (_ : any mod contended portable))
+              -> bool t
           | C :
-              { x : f
-              ; y : mut
-              ; z : mut_f
+              { x : f as (_ : any mod contended) @@ portable
+              ; y : mut as (_ : any mod portable) @@ contended
+              ; z : mut_f @@ contended portable
               }
               -> string t
         [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type 'a__022_ t = 'a__022_ Check__021_.t =
+    type 'a__022_ t : value mod contended portable = 'a__022_ Check__021_.t =
       | A : int t
-      | B : f * int -> bool t
+      | B : f @@ portable * int -> bool t
       | C :
-          { x : f
-          ; y : mut
-          ; z : mut_f
+          { x : f @@ portable
+          ; y : mut @@ contended
+          ; z : mut_f @@ contended portable
           }
           -> string t
     [@@unsafe_allow_any_mode_crossing]
@@ -308,34 +311,40 @@ module%test Modalities2 = struct
 
   [@@@end]
 
-  let cross : _ t -> _ t = fun x -> x
+  let cross : _ t @ contended -> _ t @ portable = fun x -> x
 end
 
 (* See also [test_errors.mdx]. *)
 module%test Existentials = struct
   [@@@expand_inline
-    type%fuelproof t =
-      | A : 'a. 'a -> t
-      | B : 'a. 'a list -> t
-      | C : 'a. 'a iarray -> t]
+    type%fuelproof t : value mod portable =
+      | A : ('a : value mod portable). 'a -> t
+      | B : ('a : value mod portable). 'a list -> t
+      | C : ('a : value mod portable). 'a iarray -> t]
 
   include struct
     open struct
       [@@@warning "-34"]
 
       module Check__025_ = struct
-        type t =
-          | A : 'a. 'a -> t
-          | B : 'a. 'a Ppx_fuelproof_runtime.list -> t
-          | C : 'a. 'a Ppx_fuelproof_runtime.Iarray.t -> t
+        type t : value mod portable =
+          | A : ('a : value mod portable). ('a as (_ : any mod portable)) -> t
+          | B :
+              ('a : value mod portable).
+              ('a as (_ : any mod portable)) Ppx_fuelproof_runtime.list
+              -> t
+          | C :
+              ('a : value mod portable).
+              ('a as (_ : any mod portable)) Ppx_fuelproof_runtime.Iarray.t
+              -> t
         [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type t = Check__025_.t =
-      | A : 'a. 'a -> t
-      | B : 'a. 'a list -> t
-      | C : 'a. 'a iarray -> t
+    type t : value mod portable = Check__025_.t =
+      | A : ('a : value mod portable). 'a -> t
+      | B : ('a : value mod portable). 'a list -> t
+      | C : ('a : value mod portable). 'a iarray -> t
     [@@unsafe_allow_any_mode_crossing]
   end
 
@@ -344,7 +353,7 @@ end
 
 module%test Kind_abbreviations = struct
   [@@@expand_inline
-    type%fuelproof _ t =
+    type%fuelproof _ t : immutable_data =
       { x : int
       ; y : int t
       }]
@@ -354,15 +363,19 @@ module%test Kind_abbreviations = struct
       [@@@warning "-34"]
 
       module Check__027_ = struct
-        type _ t =
-          { x : int
-          ; y : int t
+        type _ t : immutable_data =
+          { x :
+              int as (_ : any mod contended immutable many portable stateless unyielding)
+          ; y :
+              int t
+              as
+              (_ : any mod contended immutable many portable stateless unyielding)
           }
         [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type 'a__028_ t = 'a__028_ Check__027_.t =
+    type 'a__028_ t : immutable_data = 'a__028_ Check__027_.t =
       { x : int
       ; y : int t
       }
@@ -371,12 +384,12 @@ module%test Kind_abbreviations = struct
 
   [@@@end]
 
-  let cross : _ t -> _ t = fun x -> x
+  let cross : _ t @ contended -> _ t @ portable = fun x -> x
 end
 
 module%test Kind_abbreviations2 = struct
   [@@@expand_inline
-    type%fuelproof _ t =
+    type%fuelproof _ t : mutable_data =
       { mutable x : int
       ; mutable y : int t
       }]
@@ -386,15 +399,15 @@ module%test Kind_abbreviations2 = struct
       [@@@warning "-34"]
 
       module Check__031_ = struct
-        type _ t =
-          { mutable x : int
-          ; mutable y : int t
+        type _ t : mutable_data =
+          { mutable x : int as (_ : any mod many portable stateless unyielding)
+          ; mutable y : int t as (_ : any mod many portable stateless unyielding)
           }
         [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type 'a__032_ t = 'a__032_ Check__031_.t =
+    type 'a__032_ t : mutable_data = 'a__032_ Check__031_.t =
       { mutable x : int
       ; mutable y : int t
       }
@@ -403,46 +416,61 @@ module%test Kind_abbreviations2 = struct
 
   [@@@end]
 
-  let cross : _ t -> _ t = fun x -> x
+  let cross : _ t -> _ t @ portable = fun x -> x
 end
 
 module%test Recursive_unboxed = struct
   [@@@expand_inline
-    type%fuelproof t =
+    type%fuelproof t : immutable_data =
       | Nil of int
       | Rec of u
 
-    and u = { more : v } [@@unboxed]
-    and v = { x : t }]
+    and u : immutable_data = { more : v } [@@unboxed]
+    and v : immutable_data = { x : t }]
 
   include struct
     open struct
       [@@@warning "-34"]
 
       module Check__035_ = struct
-        type t =
-          | Nil of int
-          | Rec of u
+        type t : immutable_data =
+          | Nil of
+              (int as (_ : any mod contended immutable many portable stateless unyielding))
+          | Rec of
+              (u as (_ : any mod contended immutable many portable stateless unyielding))
         [@@unsafe_allow_any_mode_crossing]
 
-        and u = { more : v } [@@unboxed] [@@unsafe_allow_any_mode_crossing]
-        and v = { x : t } [@@unsafe_allow_any_mode_crossing]
+        and u : immutable_data =
+          { more :
+              v
+              as
+              (_ :
+              any mod contended immutable many non_float portable stateless unyielding)
+          }
+        [@@unboxed] [@@unsafe_allow_any_mode_crossing]
+
+        and v : immutable_data =
+          { x : t as (_ : any mod contended immutable many portable stateless unyielding)
+          }
+        [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type t = Check__035_.t =
+    type t : immutable_data = Check__035_.t =
       | Nil of int
       | Rec of u
     [@@unsafe_allow_any_mode_crossing]
 
-    and u = Check__035_.u = { more : v } [@@unboxed] [@@unsafe_allow_any_mode_crossing]
-    and v = Check__035_.v = { x : t } [@@unsafe_allow_any_mode_crossing]
+    and u : immutable_data = Check__035_.u = { more : v }
+    [@@unboxed] [@@unsafe_allow_any_mode_crossing]
+
+    and v : immutable_data = Check__035_.v = { x : t } [@@unsafe_allow_any_mode_crossing]
   end
 
   [@@@end]
 
-  let cross_portability : t -> t = fun x -> x
-  let cross_contention : t -> t = fun x -> x
+  let cross_portability : t -> t @ portable = fun x -> x
+  let cross_contention : t @ contended -> t = fun x -> x
 end
 
 (* When recursive uses of a type under definition appear under immutable_data type
@@ -455,7 +483,7 @@ module%test Recursive_with_immutable_data = struct
   end
 
   [@@@expand_inline
-    type%fuelproof t =
+    type%fuelproof t : value mod contended portable =
       | Both of (t * t) list Iarray.t
       | Other of (int * t) iarray option]
 
@@ -464,14 +492,22 @@ module%test Recursive_with_immutable_data = struct
       [@@@warning "-34"]
 
       module Check__037_ = struct
-        type t =
-          | Both of (t * t) Ppx_fuelproof_runtime.list Ppx_fuelproof_runtime.Iarray.t
-          | Other of (int * t) Ppx_fuelproof_runtime.Iarray.t Ppx_fuelproof_runtime.option
+        type t : value mod contended portable =
+          | Both of
+              ((t as (_ : any mod contended portable))
+              * (t as (_ : any mod contended portable)))
+                Ppx_fuelproof_runtime.list
+                Ppx_fuelproof_runtime.Iarray.t
+          | Other of
+              ((int as (_ : any mod contended portable))
+              * (t as (_ : any mod contended portable)))
+                Ppx_fuelproof_runtime.Iarray.t
+                Ppx_fuelproof_runtime.option
         [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type t = Check__037_.t =
+    type t : value mod contended portable = Check__037_.t =
       | Both of (t * t) list Iarray.t
       | Other of (int * t) iarray option
     [@@unsafe_allow_any_mode_crossing]
@@ -479,8 +515,8 @@ module%test Recursive_with_immutable_data = struct
 
   [@@@end]
 
-  let cross_portability : t -> t = fun x -> x
-  let cross_contention : t -> t = fun x -> x
+  let cross_portability : t -> t @ portable = fun x -> x
+  let cross_contention : t @ contended -> t = fun x -> x
 end
 
 (* [%fuelproof] doesn't error as long as at least one type in the knot has
@@ -489,9 +525,9 @@ end
 module%test Recursive_knot = struct
   [@@@expand_inline
     type%fuelproof t = { u : u }
-    and u = U : int -> u
+    and u : value mod portable = U : int -> u
     and v
-    and w = int]
+    and w : value mod contended = int]
 
   include struct
     open struct
@@ -499,16 +535,22 @@ module%test Recursive_knot = struct
 
       module Check__039_ = struct
         type t = { u : u }
-        and u = U : int -> u [@@unsafe_allow_any_mode_crossing]
+
+        and u : value mod portable = U : (int as (_ : any mod portable)) -> u
+        [@@unsafe_allow_any_mode_crossing]
+
         and v
-        and w = int
+        and w : value mod contended = int
       end
     end
 
     type t = Check__039_.t = { u : u }
-    and u = Check__039_.u = U : int -> u [@@unsafe_allow_any_mode_crossing]
+
+    and u : value mod portable = Check__039_.u = U : int -> u
+    [@@unsafe_allow_any_mode_crossing]
+
     and v = Check__039_.v
-    and w = int
+    and w : value mod contended = int
   end
 
   [@@@end]
@@ -516,24 +558,27 @@ end
 
 module Deriving_ppxes : sig
   [@@@expand_inline:
-    type%fuelproof t =
+    type%fuelproof t : value mod portable =
       | T :
           { x : int u
           ; y : int option
           }
           -> t
 
-    and 'a u = U : 'a. 'a -> 'a u [@@deriving sexp_of]]
+    and 'a u : value mod portable = U : ('a : value mod portable). 'a -> 'a u
+    [@@deriving sexp_of]]
 
-  type t =
+  type t : value mod portable =
     | T :
-        { x : int u
-        ; y : int Ppx_fuelproof_runtime.option
+        { x : int u as (_ : any mod portable)
+        ; y : (int as (_ : any mod portable)) Ppx_fuelproof_runtime.option
         }
         -> t
   [@@unsafe_allow_any_mode_crossing]
 
-  and 'a u = U : 'a. 'a -> 'a u [@@deriving sexp_of] [@@unsafe_allow_any_mode_crossing]
+  and 'a u : value mod portable =
+    | U : ('a : value mod portable). ('a as (_ : any mod portable)) -> 'a u
+  [@@deriving sexp_of] [@@unsafe_allow_any_mode_crossing]
 
   include sig
     [@@@ocaml.warning "-32"]
@@ -548,33 +593,36 @@ end = struct
   let sexp_of_int = Base.Int.sexp_of_t
 
   [@@@expand_inline
-    type%fuelproof t =
+    type%fuelproof t : value mod portable =
       | T :
           { x : int u
           ; y : int option [@option]
           }
           -> t
 
-    and 'a u = U : 'a. 'a -> 'a u [@@deriving sexp_of]]
+    and 'a u : value mod portable = U : ('a : value mod portable). 'a -> 'a u
+    [@@deriving sexp_of]]
 
   include struct
     open struct
       [@@@warning "-34"]
 
       module Check__041_ = struct
-        type t =
+        type t : value mod portable =
           | T :
-              { x : int u
-              ; y : int Ppx_fuelproof_runtime.option
+              { x : int u as (_ : any mod portable)
+              ; y : (int as (_ : any mod portable)) Ppx_fuelproof_runtime.option
               }
               -> t
         [@@unsafe_allow_any_mode_crossing]
 
-        and 'a u = U : 'a. 'a -> 'a u [@@unsafe_allow_any_mode_crossing]
+        and 'a u : value mod portable =
+          | U : ('a : value mod portable). ('a as (_ : any mod portable)) -> 'a u
+        [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type t = Check__041_.t =
+    type t : value mod portable = Check__041_.t =
       | T :
           { x : int u
           ; y : int option [@option]
@@ -582,7 +630,8 @@ end = struct
           -> t
     [@@unsafe_allow_any_mode_crossing]
 
-    and 'a u = 'a Check__041_.u = U : 'a. 'a -> 'a u
+    and 'a u : value mod portable = 'a Check__041_.u =
+      | U : ('a : value mod portable). 'a -> 'a u
     [@@deriving sexp_of] [@@unsafe_allow_any_mode_crossing]
 
     include struct
@@ -625,24 +674,28 @@ end = struct
 end
 
 module Attributes_preserved : sig
-  [@@@expand_inline: type%fuelproof t = { mutable x : int [@atomic] }]
+  [@@@expand_inline:
+    type%fuelproof t : value mod portable = { mutable x : int [@atomic] }]
 
-  type t = { mutable x : int [@atomic] } [@@unsafe_allow_any_mode_crossing]
+  type t : value mod portable = { mutable x : int as (_ : any mod portable) [@atomic] }
+  [@@unsafe_allow_any_mode_crossing]
 
   [@@@end]
 end = struct
-  [@@@expand_inline type%fuelproof t = { mutable x : int [@atomic] }]
+  [@@@expand_inline type%fuelproof t : value mod portable = { mutable x : int [@atomic] }]
 
   include struct
     open struct
       [@@@warning "-34"]
 
       module Check__076_ = struct
-        type t = { mutable x : int [@atomic] } [@@unsafe_allow_any_mode_crossing]
+        type t : value mod portable =
+          { mutable x : int as (_ : any mod portable) [@atomic] }
+        [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type t = Check__076_.t = { mutable x : int [@atomic] }
+    type t : value mod portable = Check__076_.t = { mutable x : int [@atomic] }
     [@@unsafe_allow_any_mode_crossing]
   end
 
@@ -654,30 +707,42 @@ end
 *)
 module Manifest : sig
   [@@@expand_inline:
-    type%fuelproof t = { f : unit -> unit } [@@unsafe_allow_any_mode_crossing]
-    and u = { x : t }]
+    type%fuelproof t : value mod portable = { f : unit -> unit }
+    [@@unsafe_allow_any_mode_crossing]
 
-  type t = { f : unit -> unit } [@@unsafe_allow_any_mode_crossing]
-  and u = { x : t } [@@unsafe_allow_any_mode_crossing]
+    and u : value mod portable = { x : t }]
+
+  type t : value mod portable = { f : unit -> unit } [@@unsafe_allow_any_mode_crossing]
+
+  and u : value mod portable = { x : t as (_ : any mod portable) }
+  [@@unsafe_allow_any_mode_crossing]
 
   [@@@end]
 end = struct
   [@@@expand_inline
-    type%fuelproof t = { f : unit -> unit } [@@unsafe_allow_any_mode_crossing]
-    and u = { x : t }]
+    type%fuelproof t : value mod portable = { f : unit -> unit }
+    [@@unsafe_allow_any_mode_crossing]
+
+    and u : value mod portable = { x : t }]
 
   include struct
     open struct
       [@@@warning "-34"]
 
       module Check__078_ = struct
-        type t = { f : unit -> unit } [@@unsafe_allow_any_mode_crossing]
-        and u = { x : t } [@@unsafe_allow_any_mode_crossing]
+        type t : value mod portable = { f : unit -> unit }
+        [@@unsafe_allow_any_mode_crossing]
+
+        and u : value mod portable = { x : t as (_ : any mod portable) }
+        [@@unsafe_allow_any_mode_crossing]
       end
     end
 
-    type t = Check__078_.t = { f : unit -> unit } [@@unsafe_allow_any_mode_crossing]
-    and u = Check__078_.u = { x : t } [@@unsafe_allow_any_mode_crossing]
+    type t : value mod portable = Check__078_.t = { f : unit -> unit }
+    [@@unsafe_allow_any_mode_crossing]
+
+    and u : value mod portable = Check__078_.u = { x : t }
+    [@@unsafe_allow_any_mode_crossing]
   end
 
   [@@@end]

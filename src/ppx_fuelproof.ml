@@ -125,11 +125,11 @@ let immutable_data : Supported_axis.t list =
 ;;
 
 module _ : sig
-  type _t1
-  type _t2
+  type _t1 : immutable_data
+  type _t2 : value mod contended immutable many non_float portable stateless unyielding
 end = struct
-  type _t1
-  type _t2
+  type _t1 : value mod contended immutable many non_float portable stateless unyielding
+  type _t2 : immutable_data
 end
 
 let mutable_data : Supported_axis.t list =
@@ -137,11 +137,11 @@ let mutable_data : Supported_axis.t list =
 ;;
 
 module _ : sig
-  type _t1
-  type _t2
+  type _t1 : mutable_data
+  type _t2 : value mod many non_float portable stateless unyielding
 end = struct
-  type _t1
-  type _t2
+  type _t1 : value mod many non_float portable stateless unyielding
+  type _t2 : mutable_data
 end
 
 let sync_data : Supported_axis.t list =
@@ -149,11 +149,11 @@ let sync_data : Supported_axis.t list =
 ;;
 
 module _ : sig
-  type _t1
-  type _t2
+  type _t1 : sync_data
+  type _t2 : value mod contended many non_float portable stateless unyielding
 end = struct
-  type _t1
-  type _t2
+  type _t1 : value mod contended many non_float portable stateless unyielding
+  type _t2 : sync_data
 end
 (*$*)
 
