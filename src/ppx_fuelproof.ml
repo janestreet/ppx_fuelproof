@@ -4,6 +4,32 @@ open Ppxlib
 (*$ open Base *)
 (*$*)
 
+let ghostify =
+  object
+    inherit Ast_traverse.map
+    method! location loc = { loc with loc_ghost = true }
+  end
+;;
+
+let clear_non_builtin_attributes =
+  object
+    inherit Ast_traverse.map
+
+    method! attributes attributes =
+      List.filter attributes ~f:(fun a ->
+        match a.attr_name.txt with
+        | "atomic"
+        | "ocaml.atomic"
+        | "warning"
+        | "ocaml.warning"
+        | "alert"
+        | "ocaml.alert"
+        | "doc"
+        | "ocaml.doc" -> true
+        | _ -> false)
+  end
+;;
+
 module Supported_axis = struct
   module T = struct
     type t =
@@ -157,6 +183,20 @@ let crossing_axes_is_implied_by_immutable_data axes =
     | Non_float -> false)
 ;;
 
+let with_unsafe_allow_any_mode_crossing attributes ~loc =
+  attributes
+  @ [ { attr_loc = loc
+      ; attr_name = { loc; txt = "unsafe_allow_any_mode_crossing" }
+      ; attr_payload = PStr []
+      }
+    ]
+;;
+
+let has_unsafe_allow_any_mode_crossing attributes =
+  List.exists attributes ~f:(fun attr ->
+    String.equal attr.attr_name.txt "unsafe_allow_any_mode_crossing")
+;;
+
 let type_with_builtin_cross_checking ty ~axes_to_cross ~axes_to_ignore =
   let axes_to_check_crossing =
     List.filter axes_to_cross ~f:(fun { txt = axis_to_cross; _ } ->
@@ -200,26 +240,26 @@ let type_with_builtin_cross_checking ty ~axes_to_cross ~axes_to_ignore =
       match ty with
       | [%type: [%t? ty] list]
         when crossing_axes_is_implied_by_immutable_data axes_to_check_crossing ->
-        [%type: [%t wrap_loop ty] list]
+        [%type: [%t wrap_loop ty] Ppx_fuelproof_runtime.list]
       | [%type: [%t? ty] iarray]
         when crossing_axes_is_implied_by_immutable_data axes_to_check_crossing ->
-        [%type: [%t wrap_loop ty] iarray]
+        [%type: [%t wrap_loop ty] Ppx_fuelproof_runtime.Iarray.t]
       | [%type: [%t? ty] Iarray.t]
         when crossing_axes_is_implied_by_immutable_data axes_to_check_crossing ->
-        [%type: [%t wrap_loop ty] Iarray.t]
+        [%type: [%t wrap_loop ty] Ppx_fuelproof_runtime.Iarray.t]
       | [%type: [%t? ty1] * [%t? ty2]]
         when crossing_axes_is_implied_by_immutable_data axes_to_check_crossing ->
         [%type: [%t wrap_loop ty1] * [%t wrap_loop ty2]]
       | [%type: [%t? ty] option]
         when crossing_axes_is_implied_by_immutable_data axes_to_check_crossing ->
-        [%type: [%t wrap_loop ty] option]
+        [%type: [%t wrap_loop ty] Ppx_fuelproof_runtime.option]
       | _ -> wrap_ty_in_check ty
     in
     wrap_loop ty
 ;;
 
 let rewrite_fields original_fields ~axes_to_cross =
-  let open Or_error.Let_syntax in
+  let open Result.Let_syntax in
   let check_crossing_contention =
     List.exists axes_to_cross ~f:(fun axis ->
       [%compare.equal: Supported_axis.t] axis.txt Contended)
@@ -231,7 +271,10 @@ let rewrite_fields original_fields ~axes_to_cross =
       match field.pld_mutable with
       | Mutable ->
         if check_crossing_contention
-        then Or_error.errorf "Type with a mutable field can't cross contention"
+        then
+          Error
+            ( Error.of_string "Type with a mutable field can't cross contention"
+            , field.pld_loc )
         else Ok ()
       | Immutable -> Ok ()
     in
@@ -253,7 +296,7 @@ let rewrite_arg arg ~axes_to_cross =
 ;;
 
 let rewrite_constructors original_constructors ~axes_to_cross =
-  let open Or_error.Let_syntax in
+  let open Result.Let_syntax in
   List.map original_constructors ~f:(fun ctor ->
     let%bind args =
       match ctor.pcd_args with
@@ -272,77 +315,222 @@ let remove_non_modal axes =
   List.filter axes ~f:(fun loc -> Supported_axis.is_modal loc.txt)
 ;;
 
-let rewrite_tydecls (tydecls : type_declaration list) =
-  let open Or_error.Let_syntax in
+module Rewritten_tydecl = struct
+  type t =
+    { checked_with_fuelproof : bool
+    ; tydecl : type_declaration
+    }
+end
+
+let rewrite_tydecls (tydecls : type_declaration list) ~loc
+  : (Rewritten_tydecl.t list, _) Result.t
+  =
+  let open Result.Let_syntax in
   let%bind new_tydecls =
     List.map tydecls ~f:(fun t ->
-      match Ppxlib_jane.Shim.Type_declaration.extract_jkind_annotation t with
-      | None -> Ok `Unchanged
-      | Some jkind ->
-        let%bind axes_to_cross =
-          match jkind with
-          | { pjkind_desc = Mod ({ pjkind_desc = Abbreviation "value"; _ }, mods); _ } ->
-            let%bind axes =
-              List.map mods ~f:(fun mod_ ->
-                let%map axis = Supported_axis.of_modal_mod mod_.txt in
-                { mod_ with txt = axis })
-              |> Result.all
-            in
-            Ok axes
-          | { pjkind_desc = Abbreviation "immutable_data"; pjkind_loc = loc } ->
-            Ok (immutable_data ~loc)
-          | { pjkind_desc = Abbreviation "mutable_data"; pjkind_loc = loc } ->
-            Ok (mutable_data ~loc)
-          | { pjkind_desc = Abbreviation "sync_data"; pjkind_loc = loc } ->
-            Ok (sync_data ~loc)
-          | _ -> Or_error.error_string "Unsupported kind annotation for %fuelproof"
+      (* Returning `Unchanged means that we won't attempt to prove anything about that
+         type. fuelproof will produce an error if, for all types in the recursive knot,
+         it's able to prove nothing.
+      *)
+      With_return.with_return (fun r ->
+        let () =
+          if has_unsafe_allow_any_mode_crossing t.ptype_attributes
+          then r.return (Ok `Unchanged)
         in
-        let axes_to_cross =
-          let is_unboxed =
-            List.exists t.ptype_attributes ~f:(fun attr ->
-              String.equal attr.attr_name.txt "unboxed")
+        match Ppxlib_jane.Shim.Type_declaration.extract_jkind_annotation t with
+        | None -> r.return (Ok `Unchanged)
+        | Some jkind ->
+          let%bind axes_to_cross =
+            match jkind with
+            | { pjkind_desc = Mod ({ pjkind_desc = Abbreviation "value"; _ }, mods); _ }
+              ->
+              let%bind axes =
+                List.map mods ~f:(fun mod_ ->
+                  let%map axis =
+                    Supported_axis.of_modal_mod mod_.txt
+                    |> Result.map_error ~f:(fun err -> err, mod_.loc)
+                  in
+                  { mod_ with txt = axis })
+                |> Result.all
+              in
+              Ok axes
+            | { pjkind_desc = Abbreviation "immutable_data"; pjkind_loc = loc } ->
+              Ok (immutable_data ~loc)
+            | { pjkind_desc = Abbreviation "mutable_data"; pjkind_loc = loc } ->
+              Ok (mutable_data ~loc)
+            | { pjkind_desc = Abbreviation "sync_data"; pjkind_loc = loc } ->
+              Ok (sync_data ~loc)
+            | { pjkind_loc = loc; _ } ->
+              Error (Error.of_string "Unsupported kind annotation for %fuelproof", loc)
           in
-          (* For example, [Non_float]'s axis (separability) is not modal, so applies in
+          let axes_to_cross =
+            let is_unboxed =
+              List.exists t.ptype_attributes ~f:(fun attr ->
+                String.equal attr.attr_name.txt "unboxed")
+            in
+            (* For example, [Non_float]'s axis (separability) is not modal, so applies in
              different circumstances than modal axes. In particular, it is only relevant
              for fuelproof checks on [@@unboxed] types, where the separability of the
              overall type is inherited from the separability of the single field. *)
-          if is_unboxed then axes_to_cross else remove_non_modal axes_to_cross
-        in
-        let%bind new_ptype_kind =
-          match t.ptype_kind with
-          | Ptype_record fields ->
-            let%bind fields = rewrite_fields fields ~axes_to_cross in
-            return (Ptype_record fields)
-          | Ptype_variant constructors ->
-            let%bind constructors = rewrite_constructors constructors ~axes_to_cross in
-            return (Ptype_variant constructors)
-          | _ -> Or_error.error_string "Can only write %fuelproof on records and variants"
-        in
-        let loc = { t.ptype_loc with loc_ghost = true } in
-        Ok
-          (`Changed
-            { t with
-              ptype_kind = new_ptype_kind
-            ; ptype_attributes =
-                t.ptype_attributes
-                @ [ { attr_loc = loc
-                    ; attr_name = { loc; txt = "unsafe_allow_any_mode_crossing" }
-                    ; attr_payload = PStr []
-                    }
-                  ]
-            }))
+            if is_unboxed then axes_to_cross else remove_non_modal axes_to_cross
+          in
+          let%bind new_ptype_kind =
+            match t.ptype_kind with
+            | Ptype_record fields ->
+              let%bind fields = rewrite_fields fields ~axes_to_cross in
+              return (Ptype_record fields)
+            | Ptype_variant constructors ->
+              let%bind constructors = rewrite_constructors constructors ~axes_to_cross in
+              return (Ptype_variant constructors)
+            | Ptype_abstract -> r.return (Ok `Unchanged)
+            | _ ->
+              Error
+                ( Error.of_string "Can only write %fuelproof on records and variants"
+                , t.ptype_loc )
+          in
+          let loc = { t.ptype_loc with loc_ghost = true } in
+          Ok
+            (`Changed
+              { t with
+                ptype_kind = new_ptype_kind
+              ; ptype_attributes =
+                  with_unsafe_allow_any_mode_crossing t.ptype_attributes ~loc
+              })))
     |> Result.all
   in
   if List.for_all new_tydecls ~f:(function
        | `Unchanged -> true
        | `Changed _ -> false)
-  then Ok tydecls
+  then
+    Ok
+      (List.map tydecls ~f:(fun t ->
+         { Rewritten_tydecl.checked_with_fuelproof = false; tydecl = t }))
   else
     List.map2_exn tydecls new_tydecls ~f:(fun old new_ ->
       match new_ with
-      | `Unchanged -> old
-      | `Changed new_ -> new_)
+      | `Unchanged -> { Rewritten_tydecl.checked_with_fuelproof = false; tydecl = old }
+      | `Changed new_ -> { Rewritten_tydecl.checked_with_fuelproof = true; tydecl = new_ })
     |> Result.return
+;;
+
+let create_extension_str ~loc rec_flag original_tydecls =
+  match rewrite_tydecls original_tydecls ~loc with
+  | Ok rewritten_tydecls ->
+    (* For the original input:
+
+       {[
+         type%fuelproof t : value mod portable = { x : int }
+       ]}
+
+       We generate something like:
+
+       {[
+        module Check = struct
+          type t = { x : (int as (_ : value mod portable)) }
+          [@@unsafe_allow_any_mode_crossing]
+        end
+
+        type t = Check.t = { x : int } [@@unsafe_allow_any_mode_crossing]
+      ]}
+
+       The [Check] module is used to check the mode-crossing behavior is as expected, but
+       doensn't interact well with deriving ppxes, like [@@deriving sexp_of].
+
+       The [type t = Check.t = ...] declaration doesn't add any checking on top of
+       [Check], but interacts well with deriving ppxes. This allows users to write
+       [type%fuelproof t = ... [@@deriving sexp_of]], for example.
+    *)
+    let module_name = gen_symbol ~prefix:"Check" () in
+    let fuelproof_check_decl =
+      let rewritten_tydecls =
+        List.map rewritten_tydecls ~f:(fun { checked_with_fuelproof; tydecl } ->
+          if not checked_with_fuelproof
+          then tydecl
+          else (
+            let attributes =
+              List.filter tydecl.ptype_attributes ~f:(fun attr ->
+                String.( <> ) attr.attr_name.txt "deriving")
+            in
+            (* Clear attributes, which may only be consumed by deriving ppxes.
+             The attributes will be present on the [decl_for_deriving_ppxes],
+             so we're not dropping information.
+            *)
+            let cleared_tydecl = clear_non_builtin_attributes#type_declaration tydecl in
+            { cleared_tydecl with ptype_attributes = attributes }))
+      in
+      let original_type = Ast_builder.Default.pstr_type rec_flag rewritten_tydecls ~loc in
+      Ast_builder.Default.pstr_module
+        ~loc
+        (Ast_builder.Default.module_binding
+           ~loc
+           ~name:(Loc.make (Some module_name) ~loc)
+           ~expr:(Ast_builder.Default.pmod_structure ~loc [ original_type ]))
+    in
+    let decl_for_deriving_ppxes =
+      List.map2_exn
+        original_tydecls
+        rewritten_tydecls
+        ~f:
+          (fun
+            original_tydecl { checked_with_fuelproof = _; tydecl = rewritten_tydecl } ->
+          let original_tydecl = Ppxlib.name_type_params_in_td original_tydecl in
+          let attributes =
+            if has_unsafe_allow_any_mode_crossing rewritten_tydecl.ptype_attributes
+               && not
+                    (has_unsafe_allow_any_mode_crossing original_tydecl.ptype_attributes)
+            then with_unsafe_allow_any_mode_crossing original_tydecl.ptype_attributes ~loc
+            else original_tydecl.ptype_attributes
+          in
+          let original_tydecl = { original_tydecl with ptype_attributes = attributes } in
+          (* The redeclaration needs a re-export if [fuelproof_check_decl] is the original
+             declaration of a nominal type, i.e. it is a nominal tydecl without a
+             manifest. *)
+          match original_tydecl.ptype_manifest with
+          | Some _ -> original_tydecl
+          | None ->
+            let manifest =
+              Some
+                (Ast_builder.Default.ptyp_constr
+                   ~loc
+                   (Loc.make
+                      ~loc
+                      (Ldot (Lident module_name, original_tydecl.ptype_name.txt)))
+                   (List.map original_tydecl.ptype_params ~f:fst))
+            in
+            { original_tydecl with
+              ptype_manifest = manifest
+            ; ptype_attributes = attributes
+            })
+      |> Ast_builder.Default.pstr_type rec_flag ~loc
+      |> ghostify#structure_item
+    in
+    [%stri
+      include struct
+        open struct
+          [@@@warning "-34"]
+
+          [%%i fuelproof_check_decl]
+        end
+
+        [%%i decl_for_deriving_ppxes]
+      end]
+  | Error (err, err_loc) ->
+    List.iter ~f:Attribute.explicitly_drop#type_declaration original_tydecls;
+    let err = Location.error_extensionf ~loc:err_loc "%s" (Error.to_string_hum err) in
+    Ast_builder.Default.pstr_extension err [] ~loc
+;;
+
+let create_extension_sig ~loc rec_flag tydecls =
+  match rewrite_tydecls tydecls ~loc with
+  | Ok tydecls ->
+    Ast_builder.Default.psig_type
+      rec_flag
+      (List.map tydecls ~f:(fun decl -> decl.tydecl))
+      ~loc
+  | Error (err, err_loc) ->
+    List.iter ~f:Attribute.explicitly_drop#type_declaration tydecls;
+    let err = Location.error_extensionf ~loc:err_loc "%s" (Error.to_string_hum err) in
+    Ast_builder.Default.psig_extension err [] ~loc
 ;;
 
 let extension_str =
@@ -350,13 +538,7 @@ let extension_str =
     "fuelproof"
     Structure_item
     Ast_pattern.(pstr (pstr_type __ __ ^:: nil))
-    (fun ~loc ~path:_ rec_flag tydecls ->
-      match rewrite_tydecls tydecls with
-      | Ok tydecls -> Ast_builder.Default.pstr_type rec_flag tydecls ~loc
-      | Error err ->
-        List.iter ~f:Attribute.explicitly_drop#type_declaration tydecls;
-        let err = Location.error_extensionf ~loc "%s" (Error.to_string_hum err) in
-        Ast_builder.Default.pstr_extension err [] ~loc)
+    (fun ~loc ~path:_ rec_flag tydecls -> create_extension_str ~loc rec_flag tydecls)
 ;;
 
 let extension_sig =
@@ -368,13 +550,7 @@ let extension_sig =
         (map_value
            ~f:(fun s -> (Ppxlib_jane.Shim.Signature.of_parsetree s).psg_items)
            (psig_type __ __ ^:: nil)))
-    (fun ~loc ~path:_ rec_flag tydecls ->
-      match rewrite_tydecls tydecls with
-      | Ok tydecls -> Ast_builder.Default.psig_type rec_flag tydecls ~loc
-      | Error err ->
-        List.iter ~f:Attribute.explicitly_drop#type_declaration tydecls;
-        let err = Location.error_extensionf ~loc "%s" (Error.to_string_hum err) in
-        Ast_builder.Default.psig_extension err [] ~loc)
+    (fun ~loc ~path:_ rec_flag tydecls -> create_extension_sig ~loc rec_flag tydecls)
 ;;
 
 let () =
