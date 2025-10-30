@@ -21,6 +21,21 @@ Line 2, characters 7-22:
 Error: Type with a mutable field can't cross contention
 ```
 
+Error on claiming thing with mutable, atomic, non-contention-crossing
+field crosses contention:
+
+```ocaml
+type%fuelproof t : value mod contended =
+  { mutable x : int ref [@atomic] }
+```
+```mdx-error
+Line 2, characters 19-26:
+Error: Bad layout annotation:
+         The kind of int ref is mutable_data.
+         But the kind of int ref must be a subkind of any mod contended
+           because of the annotation on the wildcard _ at line 2, characters 19-26.
+```
+
 Error on type without kind annotation:
 
 ```ocaml
@@ -55,11 +70,11 @@ type%fuelproof t : value mod portable =
 ```mdx-error
 Lines 1-4, characters 1-24:
 Error: This variant or record definition does not match that of type
-         Check__001_.t
+         Check__002_.t
        1. Constructors do not match:
-         A : ('a : value mod portable). 'a -> Check__001_.t
+         A : ('a : value mod portable). 'a -> Check__002_.t
        is not the same as:
-         A : 'a -> Check__001_.t
+         A : 'a -> Check__002_.t
        The type ('a : value mod portable) is not equal to the type
          ('b : value)
        because the layouts of their variables are different.
@@ -69,9 +84,9 @@ Error: This variant or record definition does not match that of type
          because of the definition of t at lines 1-4, characters 1-24.
        2. Constructors do not match:
          B : ('a : value mod portable).
-           'a Ppx_fuelproof_runtime.list -> Check__001_.t
+           'a Ppx_fuelproof_runtime.list -> Check__002_.t
        is not the same as:
-         B : 'a list -> Check__001_.t
+         B : 'a list -> Check__002_.t
        The type 'a list is not equal to the type 'b list
        because the layouts of their variables are different.
        The layout of 'a is value mod portable
@@ -80,9 +95,9 @@ Error: This variant or record definition does not match that of type
          because of the definition of t at lines 1-4, characters 1-24.
        3. Constructors do not match:
          C : ('a : value mod portable).
-           'a Ppx_fuelproof_runtime.Iarray.t -> Check__001_.t
+           'a Ppx_fuelproof_runtime.Iarray.t -> Check__002_.t
        is not the same as:
-         C : 'a iarray -> Check__001_.t
+         C : 'a iarray -> Check__002_.t
        The type 'a iarray is not equal to the type 'b iarray
        because the layouts of their variables are different.
        The layout of 'a is value mod portable
@@ -118,10 +133,11 @@ type%fuelproof t : immutable_data = { x : float } [@@unboxed]
 ```mdx-error
 Line 1, characters 43-48:
 Error: Bad layout annotation:
-         The kind of float is value mod many unyielding stateless immutable
+         The kind of float is
+             value mod many forkable unyielding stateless immutable
            because it is the primitive type float.
          But the kind of float must be a subkind of
-             any mod many unyielding stateless immutable non_float
+             any mod many forkable unyielding stateless immutable non_float
            because of the annotation on the wildcard _ at line 1, characters 43-48.
 ```
 
@@ -138,12 +154,12 @@ Errors on trying to use a nonstandard type alias like `list`:
 ```mdx-error
 Lines 4-5, characters 7-54:
 Error: This variant or record definition does not match that of type
-         Check__004_.t
+         Check__005_.t
        Constructors do not match:
          A : ('a : value mod portable).
-           'a Ppx_fuelproof_runtime.list -> Check__004_.t
+           'a Ppx_fuelproof_runtime.list -> Check__005_.t
        is not the same as:
-         A : ('a : value mod portable). 'a list -> Check__004_.t
+         A : ('a : value mod portable). 'a list -> Check__005_.t
        The type 'a list/2 is not equal to the type 'a0 list/1
        File "_none_", line 1:
          Definition of type list/2

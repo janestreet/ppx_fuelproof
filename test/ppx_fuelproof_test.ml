@@ -682,3 +682,29 @@ end = struct
 
   [@@@end]
 end
+
+(* Mutable fields are allowed to be part of a record that crosses contention if atomic *)
+module Atomic : sig
+  [@@@expand_inline: type%fuelproof t = { mutable x : int [@atomic] }]
+
+  type t = { mutable x : int [@atomic] } [@@unsafe_allow_any_mode_crossing]
+
+  [@@@end]
+end = struct
+  [@@@expand_inline type%fuelproof t = { mutable x : int [@atomic] }]
+
+  include struct
+    open struct
+      [@@@warning "-34"]
+
+      module Check__080_ = struct
+        type t = { mutable x : int [@atomic] } [@@unsafe_allow_any_mode_crossing]
+      end
+    end
+
+    type t = Check__080_.t = { mutable x : int [@atomic] }
+    [@@unsafe_allow_any_mode_crossing]
+  end
+
+  [@@@end]
+end
