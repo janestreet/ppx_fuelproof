@@ -365,11 +365,15 @@ module%test Kind_abbreviations = struct
       module Check__027_ = struct
         type _ t : immutable_data =
           { x :
-              int as (_ : any mod contended immutable many portable stateless unyielding)
+              int
+              as
+              (_ :
+              any mod contended forkable immutable many portable stateless unyielding)
           ; y :
               int t
               as
-              (_ : any mod contended immutable many portable stateless unyielding)
+              (_ :
+              any mod contended forkable immutable many portable stateless unyielding)
           }
         [@@unsafe_allow_any_mode_crossing]
       end
@@ -400,8 +404,8 @@ module%test Kind_abbreviations2 = struct
 
       module Check__031_ = struct
         type _ t : mutable_data =
-          { mutable x : int as (_ : any mod many portable stateless unyielding)
-          ; mutable y : int t as (_ : any mod many portable stateless unyielding)
+          { mutable x : int as (_ : any mod forkable many portable stateless unyielding)
+          ; mutable y : int t as (_ : any mod forkable many portable stateless unyielding)
           }
         [@@unsafe_allow_any_mode_crossing]
       end
@@ -435,9 +439,15 @@ module%test Recursive_unboxed = struct
       module Check__035_ = struct
         type t : immutable_data =
           | Nil of
-              (int as (_ : any mod contended immutable many portable stateless unyielding))
+              (int
+               as
+               (_ :
+               any mod contended forkable immutable many portable stateless unyielding))
           | Rec of
-              (u as (_ : any mod contended immutable many portable stateless unyielding))
+              (u
+               as
+               (_ :
+               any mod contended forkable immutable many portable stateless unyielding))
         [@@unsafe_allow_any_mode_crossing]
 
         and u : immutable_data =
@@ -445,12 +455,18 @@ module%test Recursive_unboxed = struct
               v
               as
               (_ :
-              any mod contended immutable many non_float portable stateless unyielding)
+              any
+              mod
+                 contended forkable immutable many non_float portable stateless unyielding)
           }
         [@@unboxed] [@@unsafe_allow_any_mode_crossing]
 
         and v : immutable_data =
-          { x : t as (_ : any mod contended immutable many portable stateless unyielding)
+          { x :
+              t
+              as
+              (_ :
+              any mod contended forkable immutable many portable stateless unyielding)
           }
         [@@unsafe_allow_any_mode_crossing]
       end
@@ -742,6 +758,37 @@ end = struct
     [@@unsafe_allow_any_mode_crossing]
 
     and u : value mod portable = Check__078_.u = { x : t }
+    [@@unsafe_allow_any_mode_crossing]
+  end
+
+  [@@@end]
+end
+
+(* Mutable fields are allowed to be part of a record that crosses contention if atomic *)
+module Atomic : sig
+  [@@@expand_inline:
+    type%fuelproof t : value mod contended = { mutable x : int [@atomic] }]
+
+  type t : value mod contended = { mutable x : int as (_ : any mod contended) [@atomic] }
+  [@@unsafe_allow_any_mode_crossing]
+
+  [@@@end]
+end = struct
+  [@@@expand_inline
+    type%fuelproof t : value mod contended = { mutable x : int [@atomic] }]
+
+  include struct
+    open struct
+      [@@@warning "-34"]
+
+      module Check__080_ = struct
+        type t : value mod contended =
+          { mutable x : int as (_ : any mod contended) [@atomic] }
+        [@@unsafe_allow_any_mode_crossing]
+      end
+    end
+
+    type t : value mod contended = Check__080_.t = { mutable x : int [@atomic] }
     [@@unsafe_allow_any_mode_crossing]
   end
 
