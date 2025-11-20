@@ -254,12 +254,11 @@ let type_with_builtin_cross_checking ty ~axes_to_cross ~axes_to_ignore =
            })
         ~loc
     in
-    (* The following code block sidesteps an issue with ppx_fuelproof's
-       method of ensuring mode crossing. The issue presents when the
-       recursive instance of the type being defined appears under a type
-       constructor, like [list] or [iarray]. In these cases, mode crossing
-       inference is made happier when the wrapping check appears closer
-       to the type being defined.
+    (* The following code block sidesteps an issue with ppx_fuelproof's method of ensuring
+       mode crossing. The issue presents when the recursive instance of the type being
+       defined appears under a type constructor, like [list] or [iarray]. In these cases,
+       mode crossing inference is made happier when the wrapping check appears closer to
+       the type being defined.
 
        Engineering effort will be paid toward obviating ppx_fuelproof rather than making
        this check better.
@@ -404,9 +403,9 @@ let rewrite_tydecls (tydecls : type_declaration list) ~loc
                 String.equal attr.attr_name.txt "unboxed")
             in
             (* For example, [Non_float]'s axis (separability) is not modal, so applies in
-             different circumstances than modal axes. In particular, it is only relevant
-             for fuelproof checks on [@@unboxed] types, where the separability of the
-             overall type is inherited from the separability of the single field. *)
+               different circumstances than modal axes. In particular, it is only relevant
+               for fuelproof checks on [@@unboxed] types, where the separability of the
+               overall type is inherited from the separability of the single field. *)
             if is_unboxed then axes_to_cross else remove_non_modal axes_to_cross
           in
           let%bind new_ptype_kind =
@@ -460,13 +459,12 @@ let create_extension_str ~loc rec_flag original_tydecls =
        We generate something like:
 
        {[
-        module Check = struct
-          type t = { x : (int as (_ : value mod portable)) }
-          [@@unsafe_allow_any_mode_crossing]
-        end
+         module Check = struct
+           type t = { x : int as (_ : value mod portable) } [@@unsafe_allow_any_mode_crossing]
+         end
 
-        type t = Check.t = { x : int } [@@unsafe_allow_any_mode_crossing]
-      ]}
+         type t = Check.t = { x : int } [@@unsafe_allow_any_mode_crossing]
+       ]}
 
        The [Check] module is used to check the mode-crossing behavior is as expected, but
        doensn't interact well with deriving ppxes, like [@@deriving sexp_of].
@@ -486,9 +484,9 @@ let create_extension_str ~loc rec_flag original_tydecls =
               List.filter tydecl.ptype_attributes ~f:(fun attr ->
                 String.( <> ) attr.attr_name.txt "deriving")
             in
-            (* Clear attributes, which may only be consumed by deriving ppxes.
-             The attributes will be present on the [decl_for_deriving_ppxes],
-             so we're not dropping information.
+            (* Clear attributes, which may only be consumed by deriving ppxes. The
+               attributes will be present on the [decl_for_deriving_ppxes], so we're not
+               dropping information.
             *)
             let cleared_tydecl = clear_non_builtin_attributes#type_declaration tydecl in
             { cleared_tydecl with ptype_attributes = attributes }))
