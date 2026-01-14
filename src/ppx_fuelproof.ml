@@ -78,10 +78,10 @@ module Supported_axis = struct
   ;;
 end
 
-(* In the event that [immutable_data] or [mutable_data] grow new modes, add
-   then here. The below tests ensure we aren't doing something unsound in the meantime, by
-   checking (via a subkind check /in both directions/) that the set of axes we have here
-   is exactly the set of axes in [immutable_data].*)
+(* In the event that [immutable_data] or [mutable_data] grow new modes, add then here. The
+   below tests ensure we aren't doing something unsound in the meantime, by checking (via
+   a subkind check /in both directions/) that the set of axes we have here is exactly the
+   set of axes in [immutable_data]. *)
 (*$
   let immutable_data =
     [ "contended"
@@ -96,13 +96,7 @@ end
   ;;
 
   let mutable_data =
-    [ "many"
-    ; "non_float"
-    ; "portable"
-    ; "stateless"
-    ; "forkable"
-    ; "unyielding"
-    ]
+    [ "many"; "non_float"; "portable"; "stateless"; "forkable"; "unyielding" ]
   ;;
 
   let sync_data =
