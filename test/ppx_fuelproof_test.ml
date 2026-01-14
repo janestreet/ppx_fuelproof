@@ -4,9 +4,8 @@
 
 type f = unit -> unit
 
-(* ppx_fuelproof works by annotating each contained field as crossing
-   the desired mode. If this succeeds, then the overall type is allowed
-   to cross.
+(* ppx_fuelproof works by annotating each contained field as crossing the desired mode. If
+   this succeeds, then the overall type is allowed to cross.
 *)
 
 module%test Portable = struct
@@ -446,8 +445,8 @@ module%test Recursive_unboxed = struct
 end
 
 (* When recursive uses of a type under definition appear under immutable_data type
-   constructors, the constraint is pushed down to the recursive use. This
-   appears to help the type-checker infer useful kinds in more places.
+   constructors, the constraint is pushed down to the recursive use. This appears to help
+   the type-checker infer useful kinds in more places.
 *)
 module%test Recursive_with_immutable_data = struct
   module Iarray = struct
@@ -483,8 +482,7 @@ module%test Recursive_with_immutable_data = struct
   let cross_contention : t -> t = fun x -> x
 end
 
-(* [%fuelproof] doesn't error as long as at least one type in the knot has
-   an annotation.
+(* [%fuelproof] doesn't error as long as at least one type in the knot has an annotation.
 *)
 module%test Recursive_knot = struct
   [@@@expand_inline
@@ -649,8 +647,8 @@ end = struct
   [@@@end]
 end
 
-(* Fuelproof handles recursive knots even when it is not responsible for checking
-   all records in the knot (e.g. because it involves [unsafe_allow_any_mode_crossing].
+(* Fuelproof handles recursive knots even when it is not responsible for checking all
+   records in the knot (e.g. because it involves [unsafe_allow_any_mode_crossing].
 *)
 module Manifest : sig
   [@@@expand_inline:

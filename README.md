@@ -145,7 +145,19 @@ end
 ```
 ```mdx-error
 Lines 4-11, characters 5-8:
-Error: The kind of type t is immutable_data
+Error: The kind of type t is
+           immutable_data
+             with [ `a1 ] t2 t2
+
+             with [ `a2 ] t2 t2
+
+             with [ `a3 ] t2 t2
+
+             with [ `a4 ] t2 t2
+
+             with [ `a5 ] t2 t2
+
+             with [ `a6 ] t2 t2
          because it's a boxed record type.
        But the kind of type t must be a subkind of value mod portable
          because of the annotation on the declaration of the type t.
@@ -184,10 +196,12 @@ type _ t : value mod portable =
 ```
 ```mdx-error
 Lines 1-3, characters 1-39:
-Error: The kind of type t is value mod non_float
+Error: The kind of type t is immutable_data with (type : value) t
          because it's a boxed variant type.
        But the kind of type t must be a subkind of value mod portable
          because of the annotation on the declaration of the type t.
+       Note: I gave up trying to find the simplest kind for the first,
+       as it is very large or deeply recursive.
 ```
 
 With `fuelproof`:
