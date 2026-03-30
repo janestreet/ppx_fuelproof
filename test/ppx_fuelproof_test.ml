@@ -706,3 +706,107 @@ end = struct
 
   [@@@end]
 end
+
+(* [non_float] is a non-modal axis that only applies to [@@unboxed] types. For boxed
+   types, the [non_float] axis is automatically satisfied regardless of field contents. *)
+module%test Non_float_boxed_record = struct
+  [@@@expand_inline type%fuelproof t = { x : float }]
+
+  include struct
+    open struct
+      [@@@warning "-34"]
+
+      module Check__082_ = struct
+        type t = { x : float } [@@unsafe_allow_any_mode_crossing]
+      end
+    end
+
+    type t = Check__082_.t = { x : float } [@@unsafe_allow_any_mode_crossing]
+  end
+
+  [@@@end]
+end
+
+module%test Non_float_portable_boxed_record = struct
+  [@@@expand_inline type%fuelproof t = { x : float }]
+
+  include struct
+    open struct
+      [@@@warning "-34"]
+
+      module Check__084_ = struct
+        type t = { x : float } [@@unsafe_allow_any_mode_crossing]
+      end
+    end
+
+    type t = Check__084_.t = { x : float } [@@unsafe_allow_any_mode_crossing]
+  end
+
+  [@@@end]
+end
+
+module%test Non_float_boxed_variant = struct
+  [@@@expand_inline type%fuelproof t = T of float]
+
+  include struct
+    open struct
+      [@@@warning "-34"]
+
+      module Check__086_ = struct
+        type t = T of float [@@unsafe_allow_any_mode_crossing]
+      end
+    end
+
+    type t = Check__086_.t = T of float [@@unsafe_allow_any_mode_crossing]
+  end
+
+  [@@@end]
+end
+
+module%test Non_float_portable_boxed_variant = struct
+  [@@@expand_inline type%fuelproof t = T of float]
+
+  include struct
+    open struct
+      [@@@warning "-34"]
+
+      module Check__088_ = struct
+        type t = T of float [@@unsafe_allow_any_mode_crossing]
+      end
+    end
+
+    type t = Check__088_.t = T of float [@@unsafe_allow_any_mode_crossing]
+  end
+
+  [@@@end]
+end
+
+module%test Non_float_portable_multi_field = struct
+  [@@@expand_inline
+    type%fuelproof t =
+      { x : int
+      ; y : int
+      }]
+
+  include struct
+    open struct
+      [@@@warning "-34"]
+
+      module Check__090_ = struct
+        type t =
+          { x : int
+          ; y : int
+          }
+        [@@unsafe_allow_any_mode_crossing]
+      end
+    end
+
+    type t = Check__090_.t =
+      { x : int
+      ; y : int
+      }
+    [@@unsafe_allow_any_mode_crossing]
+  end
+
+  [@@@end]
+end
