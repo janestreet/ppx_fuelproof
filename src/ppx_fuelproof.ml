@@ -229,7 +229,7 @@ let type_with_builtin_cross_checking ty ~axes_to_cross ~axes_to_ignore =
         (Some
            { pjka_desc =
                Pjk_mod
-                 ( { pjka_desc = Pjk_abbreviation { txt = Lident "any"; loc }
+                 ( { pjka_desc = Pjk_abbreviation ({ txt = Lident "any"; loc }, [])
                    ; pjka_loc = loc
                    }
                  , List.map axes_to_check_crossing ~f:(fun axis ->
@@ -367,7 +367,8 @@ let rewrite_tydecls (tydecls : type_declaration list) ~loc
             match jkind with
             | { pjka_desc =
                   Pjk_mod
-                    ({ pjka_desc = Pjk_abbreviation { txt = Lident "value"; _ }; _ }, mods)
+                    ( { pjka_desc = Pjk_abbreviation ({ txt = Lident "value"; _ }, _); _ }
+                    , mods )
               ; _
               } ->
               let%bind axes =
@@ -380,13 +381,13 @@ let rewrite_tydecls (tydecls : type_declaration list) ~loc
                 |> Result.all
               in
               Ok axes
-            | { pjka_desc = Pjk_abbreviation { txt = Lident "immutable_data"; _ }
+            | { pjka_desc = Pjk_abbreviation ({ txt = Lident "immutable_data"; _ }, _)
               ; pjka_loc = loc
               } -> Ok (immutable_data ~loc)
-            | { pjka_desc = Pjk_abbreviation { txt = Lident "mutable_data"; _ }
+            | { pjka_desc = Pjk_abbreviation ({ txt = Lident "mutable_data"; _ }, _)
               ; pjka_loc = loc
               } -> Ok (mutable_data ~loc)
-            | { pjka_desc = Pjk_abbreviation { txt = Lident "sync_data"; _ }
+            | { pjka_desc = Pjk_abbreviation ({ txt = Lident "sync_data"; _ }, _)
               ; pjka_loc = loc
               } -> Ok (sync_data ~loc)
             | { pjka_loc = loc; _ } ->
@@ -448,14 +449,14 @@ let create_extension_str ~loc rec_flag original_tydecls =
     (* For the original input:
 
        {[
-         type%fuelproof t : value mod portable = { x : int }
+         type%fuelproof t = { x : int }
        ]}
 
        We generate something like:
 
        {[
          module Check = struct
-           type t = { x : int as (_ : value mod portable) } [@@unsafe_allow_any_mode_crossing]
+           type t = { x : int } [@@unsafe_allow_any_mode_crossing]
          end
 
          type t = Check.t = { x : int } [@@unsafe_allow_any_mode_crossing]

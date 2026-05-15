@@ -72,17 +72,11 @@ Lines 2-10, characters 5-8:
 Error: The kind of type t is
            immutable_data
              with Field1.t
-
              with Field2.t
-
              with Field3.t
-
              with Field4.t
-
              with Field5.t
-
              with Field6.t
-
              with Field7.t
          because it's a boxed record type.
        But the kind of type t must be a subkind of value mod portable
@@ -152,15 +146,10 @@ Lines 4-11, characters 5-8:
 Error: The kind of type t is
            immutable_data
              with [ `a1 ] t2 t2
-
              with [ `a2 ] t2 t2
-
              with [ `a3 ] t2 t2
-
              with [ `a4 ] t2 t2
-
              with [ `a5 ] t2 t2
-
              with [ `a6 ] t2 t2
          because it's a boxed record type.
        But the kind of type t must be a subkind of value mod portable
