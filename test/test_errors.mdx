@@ -131,11 +131,9 @@ type%fuelproof t : immutable_data = { x : float } [@@unboxed]
 ```mdx-error
 Line 1, characters 43-48:
 Error: Bad layout annotation:
-         The kind of float is
-             value mod forkable unyielding many stateless immutable
+         The layout of float is value
            because it is the primitive type float.
-         But the kind of float must be a subkind of
-             any mod forkable unyielding many stateless immutable non_float
+         But the layout of float must be a sublayout of any non_float
            because of the annotation on the wildcard _ at line 1, characters 43-48.
 ```
 
@@ -173,10 +171,9 @@ type%fuelproof t : value mod non_float = { x : float } [@@unboxed]
 ```mdx-error
 Line 1, characters 48-53:
 Error: Bad layout annotation:
-         The kind of float is
-             value mod forkable unyielding many stateless immutable
+         The layout of float is value
            because it is the primitive type float.
-         But the kind of float must be a subkind of any mod non_float
+         But the layout of float must be a sublayout of any non_float
            because of the annotation on the wildcard _ at line 1, characters 48-53.
 ```
 
@@ -188,10 +185,9 @@ type%fuelproof t : value mod non_float = T of float [@@unboxed]
 ```mdx-error
 Line 1, characters 47-52:
 Error: Bad layout annotation:
-         The kind of float is
-             value mod forkable unyielding many stateless immutable
+         The layout of float is value
            because it is the primitive type float.
-         But the kind of float must be a subkind of any mod non_float
+         But the layout of float must be a sublayout of any non_float
            because of the annotation on the wildcard _ at line 1, characters 47-52.
 ```
 
@@ -203,10 +199,9 @@ type%fuelproof t : value mod non_float = T of { x : float } [@@unboxed]
 ```mdx-error
 Line 1, characters 53-58:
 Error: Bad layout annotation:
-         The kind of float is
-             value mod forkable unyielding many stateless immutable
+         The layout of float is value
            because it is the primitive type float.
-         But the kind of float must be a subkind of any mod non_float
+         But the layout of float must be a sublayout of any non_float
            because of the annotation on the wildcard _ at line 1, characters 53-58.
 ```
 
@@ -220,8 +215,8 @@ type%fuelproof t : value mod non_float = T : _ u -> t [@@unboxed]
 ```mdx-error
 Line 2, characters 48-51:
 Error: Bad layout annotation:
-         The kind of 'a u is value
+         The layout of 'a u is value
            because of the definition of u at line 1, characters 1-9.
-         But the kind of 'a u must be a subkind of any mod non_float
+         But the layout of 'a u must be a sublayout of any non_float
            because of the annotation on the wildcard _ at line 2, characters 48-51.
 ```
