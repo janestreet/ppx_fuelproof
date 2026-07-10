@@ -126,7 +126,7 @@ module type Example_setup = sig
 end
 ```
 
-Running out of fuel:
+Running out of fuel (NOTE: a recent compiler roll made this better; we still need to update docs):
 ```ocaml
 module type Confusing = sig
   include Example_setup
@@ -140,22 +140,6 @@ module type Confusing = sig
       x6 : [ `a6 ] t2 t2;
     }
 end
-```
-```mdx-error
-Lines 4-11, characters 5-8:
-Error: The kind of type t is
-           immutable_data
-             with [ `a1 ] t2 t2
-             with [ `a2 ] t2 t2
-             with [ `a3 ] t2 t2
-             with [ `a4 ] t2 t2
-             with [ `a5 ] t2 t2
-             with [ `a6 ] t2 t2
-         because it's a boxed record type.
-       But the kind of type t must be a subkind of value mod portable
-         because of the annotation on the declaration of the type t.
-       Note: I gave up trying to find the simplest kind for the first,
-       as it is very large or deeply recursive.
 ```
 
 Refueling:
@@ -182,21 +166,12 @@ It is hard to predict in advance which GADTs the typechecker is able to infer mo
 crossing for. For now, `fuelproof` lets you make a wider (but admittedly still limited)
 subset of GADTs cross modes.
 
-Without `fuelproof`:
+Without `fuelproof` (NOTE: a recent compiler roll made this better; we still need to update docs):
 
 ```ocaml
 type _ t : value mod portable =
   | Zero : [ `zero ] t
   | Succ : 'a t -> [ `succ of 'a ] t
-```
-```mdx-error
-Lines 1-3, characters 1-39:
-Error: The kind of type t is immutable_data with (type : value) t
-         because it's a boxed variant type.
-       But the kind of type t must be a subkind of value mod portable
-         because of the annotation on the declaration of the type t.
-       Note: I gave up trying to find the simplest kind for the first,
-       as it is very large or deeply recursive.
 ```
 
 With `fuelproof`:
